@@ -10,53 +10,29 @@
                          <atsepkov@pyjeon.com>
                          http://www.pyjeon.com
 
-  Distributed under Apache 2.0 license:
+  Distributed under BSD license:
     Copyright 2013 (c) Alexander Tsepkov <atsepkov@pyjeon.com>
-
-  RapydScript source code is originally based on UglifyJS2 (covered
-  by BSD license). UglifyJS2 was written by Mihai Bazon
-  <mihai.bazon@gmail.com>, who is its respective copyright holder.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
-
-        * Redistributions of source code must retain the above
-          copyright notice, this list of conditions and the following
-          disclaimer.
-
-        * Redistributions in binary form must reproduce the above
-          copyright notice, this list of conditions and the following
-          disclaimer in the documentation and/or other materials
-          provided with the distribution.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER “AS IS” AND ANY
-    EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-    PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE
-    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-    OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-    PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
-    TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
-    THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-    SUCH DAMAGE.
 
 **********************************************************************
 """
 
+from utils import makePredicate, ParseError
+import ast
+
+
+def characters(str_): return str_.split("")
 
 ES6_KEYWORDS = "async await yield"
 KEYWORDS = "as break case class const continue debugger default def del do elif else except " +
-"finally for from if import in instanceof is new nonlocal pass raise return switch til to " +
-"try typeof var void while with or and not " + ES6_KEYWORDS
+"finally for from if import in is new nonlocal pass raise return switch til to " +
+"try void while with or and not " + ES6_KEYWORDS
+JS_KEYWORDS = "var function instanceof typeof catch delete throw".split(' ')
 
 
 KEYWORDS_ATOM = "False None True"
 
 RESERVED_WORDS = "abstract boolean byte char double enum export extends final float goto " +
-"implements int interface long native package private protected public short static super " +
+"implements int interface long native package private protected public short static " +
 "synchronized this throws transient volatile " + KEYWORDS_ATOM + " " + KEYWORDS
 
 KEYWORDS_BEFORE_EXPRESSION = "return new del raise elif else if"
@@ -157,8 +133,30 @@ UNICODE = {  # {{{
 }
 
 IDENTIFIER_PAT = /^[a-z_$][_a-z0-9$]*$/i
-STRING_MODIFIERS = 'urUR'
+STRING_MODIFIERS = 'urfURF'
 UNARY_POSTFIX = makePredicate([ "--", "++" ])
+
+PRECEDENCE = (def(a, ret):
+    for i in range(a.length):
+        b = a[i]
+        for j in range(b.length):
+            ret[b[j]] = i+1
+    return ret
+)([
+    # lowest precedence
+    [ "||" ],
+    [ "&&" ],
+    [ "|" ],
+    [ "^" ],
+    [ "&" ],
+    [ "==", "===", "!=", "!==" ],
+    [ "<", ">", "<=", ">=", "in", "instanceof" ],
+    [ ">>", "<<", ">>>" ],
+    [ "+", "-" ],
+    [ "*", "/", "//", "%" ],
+    [ "**" ]
+    # highest precedence
+], {})
 
 def is_letter(code):
     return code >= 97 and code <= 122 or code >= 65 and code <= 90 or code >= 170 and UNICODE.letter.test(String.fromCharCode(code))
@@ -199,28 +197,17 @@ def parse_js_number(num):
     elif RE_DEC_NUMBER.test(num):
         return parseFloat(num)
 
-def JS_Parse_Error(message, line, col, pos, is_eof):
-    this.message = message
-    this.line = line
-    this.col = col
-    this.pos = pos
-    this.stack = Error().stack
-    this.is_eof = is_eof
-
-JS_Parse_Error.prototype.toString = def():
-    return this.message + " (line: " + this.line + ", col: " + this.col + ", pos: " + this.pos + ")" + "\n\n" + this.stack
+def is_token(token, type, val):
+    return token.type is type and (val is None or val is undefined or token.value is val)
 
 def js_error(message, filename, line, col, pos, is_eof):
-    AST_Node.warn("ERROR: {message} [{file}:{line},{col}]", {
+    ast.Node.warn("ERROR: {message} [{file}:{line},{col}]", {
         message: message,
         file: filename,
         line: line,
         col: col
     })
-    raise new JS_Parse_Error(message, line, col, pos, is_eof)
-
-def is_token(token, type, val):
-    return token.type is type and (val is None or val is undefined or token.value is val)
+    raise ParseError(message, line, col, pos, is_eof)
 
 EX_EOF = {}
 
@@ -301,7 +288,7 @@ def tokenizer($TEXT, filename):  # {{{
             col: S.tokcol,
             pos: S.tokpos,
             endpos: S.pos,
-            nlb: S.newline_before,
+            newline_before: S.newline_before,
             file: filename
         }
         if not is_comment:
@@ -309,7 +296,7 @@ def tokenizer($TEXT, filename):  # {{{
             S.comments_before = []
             # make note of any newlines in the comments that came before
             for i in range(len(ret.comments_before)):
-                ret.nlb = ret.nlb or ret.comments_before[i].nlb
+                ret.newline_before = ret.newline_before or ret.comments_before[i].newline_before
 
         if not keep_newline:
             S.newline_before = False
@@ -334,7 +321,7 @@ def tokenizer($TEXT, filename):  # {{{
                 S.indentation_matters.pop()
             elif value is "}" or value is ")":
                 S.indentation_matters.pop()
-        S.prev = new AST_Token(ret)
+        S.prev = ast.Token(ret)
         return S.prev
 
     # this will transform leading whitespace to block tokens unless
@@ -373,7 +360,7 @@ def tokenizer($TEXT, filename):  # {{{
                 return -1
             else:
                 # indent mismatch, inconsistent indentation
-                parse_error("Inconsistent indentation")
+                TokenizerError("Inconsistent indentation")
         else:
             return 0
 
@@ -385,7 +372,7 @@ def tokenizer($TEXT, filename):  # {{{
             ret += next()
         return ret
 
-    def parse_error(err, is_eof):
+    def TokenizerError(err, is_eof):
         js_error(err, filename, S.tokline, S.tokcol, S.tokpos, is_eof)
 
     def read_num(prefix):
@@ -422,7 +409,7 @@ def tokenizer($TEXT, filename):  # {{{
         if not isNaN(valid):
             return token("num", valid)
         else:
-            parse_error("Invalid syntax: " + num)
+            TokenizerError("Invalid syntax: " + num)
 
 
     def read_escaped_char(in_string, digester):
@@ -459,11 +446,12 @@ def tokenizer($TEXT, filename):  # {{{
         for i in range(n):
             digit = parseInt(digester(), 16)
             if isNaN(digit):
-                parse_error("Invalid hex-character pattern in string")
+                TokenizerError("Invalid hex-character pattern in string")
             num = num << 4 | digit
         return num
 
-    read_string = with_eof_error("Unterminated string constant", def(modifier):
+    @with_eof_error("Unterminated string constant")
+    def read_string(modifier):
         token_type = "string"
         if modifier:
             token_type += ":" + modifier
@@ -483,16 +471,16 @@ def tokenizer($TEXT, filename):  # {{{
                     while tmp.length:
                         # parse escaped characters
                         if tmp[0] is "\\":
-                            tmp = tmp.substr(1)
+                            tmp = tmp[1:]
                             ret += read_escaped_char(True, def():
                                 nonlocal tmp
                                 ch = tmp[0]
-                                tmp = tmp.substr(1)
+                                tmp = tmp[1:]
                                 return ch
                             )
                         else:
                             ret += tmp[0]
-                            tmp = tmp.substr(1)
+                            tmp = tmp[1:]
 
                     # add traversed lines to the counter
                     find_newlines = ret.match(/\n/g)
@@ -505,7 +493,7 @@ def tokenizer($TEXT, filename):  # {{{
         while True:
             ch = next(True)
             if ch is "\n":
-                parse_error("End of line while scanning string literal.")
+                TokenizerError("End of line while scanning string literal.")
 
             if ch is "\\":
                 if peek() is "\n":
@@ -518,7 +506,6 @@ def tokenizer($TEXT, filename):  # {{{
                 break
             ret += ch
         return token(token_type, ret)
-    )
 
     def read_line_comment(shebang=False):
         if not shebang:
@@ -534,7 +521,8 @@ def tokenizer($TEXT, filename):  # {{{
 
         return token(shebang ? "shebang" : "comment:line", ret, True)
 
-    read_multiline_comment = with_eof_error("Unterminated multiline comment", def():
+    @with_eof_error("Unterminated multiline comment")
+    def read_multiline_comment():
         next()
         i = find("*/", True)
         text = S.text.substring(S.pos, i)
@@ -550,7 +538,6 @@ def tokenizer($TEXT, filename):  # {{{
         S.col += 2
         S.newline_before = S.newline_before or "\n" in text
         return token("comment:multiline", text, True)
-    )
 
     def read_name():
         backslash = False
@@ -574,10 +561,10 @@ def tokenizer($TEXT, filename):  # {{{
                     break
             else:
                 if ch is not "u":
-                    parse_error("Expecting UnicodeEscapeSequence -- uXXXX")
+                    TokenizerError("Expecting UnicodeEscapeSequence -- uXXXX")
                 ch = read_escaped_char()
                 if not is_identifier_char(ch):
-                    parse_error("Unicode char: " + ch.charCodeAt(0) + " is not valid in identifier")
+                    TokenizerError("Unicode char: " + ch.charCodeAt(0) + " is not valid in identifier")
                 name += ch
                 backslash = False
 
@@ -586,7 +573,8 @@ def tokenizer($TEXT, filename):  # {{{
             name = "\\u" + "0000".substr(hex.length) + hex + name.slice(1)
         return name
 
-    read_regexp = with_eof_error("Unterminated regular expression", def(regexp):
+    @with_eof_error("Unterminated regular expression")
+    def read_regexp(regexp):
         prev_backslash = False
 
         in_class = False
@@ -639,7 +627,6 @@ def tokenizer($TEXT, filename):  # {{{
 
         mods = read_name()
         return token("regexp", RegExp(regexp, mods))
-    )
 
     def read_operator(prefix):
         def grow(op):
@@ -654,7 +641,7 @@ def tokenizer($TEXT, filename):  # {{{
                 return op
         op = grow(prefix or next())
         if op in ["++", "--", "===", "!=="]:
-            parse_error("Invalid operator «" + op + "»")
+            TokenizerError("Invalid operator «" + op + "»")
         elif op is '->':
             # pretend that this is an operator as the tokenizer only allows
             # one character punctuation.
@@ -671,17 +658,22 @@ def tokenizer($TEXT, filename):  # {{{
 
     def read_word():
         word = read_name()
-        return (KEYWORDS_ATOM(word) ? token("atom", word) : (not KEYWORDS(word) ? token("name", word) : (OPERATORS(word) and prevChar() is not "." ? token("operator", word) : token("keyword", word))))
+        return (KEYWORDS_ATOM(word) ? token("atom", word) : (
+            not KEYWORDS(word) ? token("name", word) : (
+                OPERATORS(word) and prevChar() is not "." ? token("operator", word) : token("keyword", word)
+            )
+        ))
 
-    def with_eof_error(eof_error, cont):
-        return def(x):
-            try:
-                return cont(x)
-            except as ex:
-                if ex is EX_EOF:
-                    parse_error(eof_error, true)
-                else:
-                    raise
+    def with_eof_error(eof_error):
+        return def(cont):
+            return def(x):
+                try:
+                    return cont(x)
+                except as ex:
+                    if ex is EX_EOF:
+                        TokenizerError(eof_error, true)
+                    else:
+                        raise
 
     def next_token(force_regexp):
         if force_regexp not in (None, undefined):
@@ -744,7 +736,7 @@ def tokenizer($TEXT, filename):  # {{{
                 tok.type = string_tok.type
             return tok
 
-        parse_error("Unexpected character «" + ch + "»")
+        TokenizerError("Unexpected character «" + ch + "»")
 
     next_token.context = def(nc):
         nonlocal S

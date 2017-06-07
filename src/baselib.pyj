@@ -10,38 +10,8 @@
                          <atsepkov@pyjeon.com>
                          http://www.pyjeon.com
 
-  Distributed under Apache 2.0 license:
+  Distributed under BSD license:
     Copyright 2013 (c) Alexander Tsepkov <atsepkov@pyjeon.com>
-
-  RapydScript source code is originally based on UglifyJS2 (covered
-  by BSD license). UglifyJS2 was written by Mihai Bazon
-  <mihai.bazon@gmail.com>, who is its respective copyright holder.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
-
-        * Redistributions of source code must retain the above
-          copyright notice, this list of conditions and the following
-          disclaimer.
-
-        * Redistributions in binary form must reproduce the above
-          copyright notice, this list of conditions and the following
-          disclaimer in the documentation and/or other materials
-          provided with the distribution.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER “AS IS” AND ANY
-    EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-    PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE
-    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-    OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-    PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
-    TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
-    THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-    SUCH DAMAGE.
 
  **********************************************************************
 """
@@ -100,29 +70,31 @@
 ,
 "enumerate": def enumerate(item):
     arr = []
-    for i in range(len(item)):
+    iter = ՐՏ_Iterable(item)
+    for i in range(iter.length):
         arr[arr.length] = [i, item[i]]
     return arr
 ,
 "eslice": def ՐՏ_eslice(arr, step, start, end):
     arr = arr[:]
-    if type(arr) is 'string' or isinstance(arr, String):
+    if JS('typeof arr') is 'string' or isinstance(arr, String):
         isString = True
         arr = arr.split('')
 
     if step < 0:
         step = -step
         arr.reverse()
-        if type(start) is not "undefined": start = arr.length - start - 1
-        if type(end) is not "undefined": end = arr.length - end - 1
-    if type(start) is "undefined": start = 0
-    if type(end) is "undefined": end = arr.length
+        if JS('typeof start') is not "undefined": start = arr.length - start - 1
+        if JS('typeof end') is not "undefined": end = arr.length - end - 1
+    if JS('typeof start') is "undefined": start = 0
+    if JS('typeof end') is "undefined": end = arr.length
 
     arr = arr.slice(start, end).filter(def(e, i): return i % step is 0;)
     return isString ? arr.join('') : arr
 ,
 "extends": def ՐՏ_extends(child, parent):
     child.prototype = Object.create(parent.prototype)
+    child.prototype.__base__ = parent     # since we don't support multiple inheritance, __base__ seemed more appropriate than __bases__ array of 1
     child.prototype.constructor = child
 ,
 "filter": def filter(oper, arr):
@@ -135,36 +107,46 @@
     return arr.hasOwnProperty(val)
 ,
 "iterable": def ՐՏ_Iterable(iterable):
-    if Array.isArray(iterable) or isinstance(iterable, String) or JS('typeof iterable') is 'string': return iterable
+    # can't use Symbol.iterator yet since it's not supported on all platforms until ES6 (i.e. mobile browsers don't have it)
+    if iterable.constructor is [].constructor
+    or iterable.constructor is ''.constructor
+    or (tmp = Array.prototype.slice.call(iterable)).length:
+        return tmp or iterable
     return Object.keys(iterable)    # so we can use 'for ... in' syntax with hashes
 ,
 "len": def len(obj):
-    # naive assumption that indexOf will only exist on arrays and strings buys us a huge performance boost over the slow isArray check
-    if JS('typeof obj.indexOf') is 'function': return obj.length
+    # can't use Symbol.iterator yet since it's not supported on all platforms until ES6 (i.e. mobile browsers don't have it)
+    if obj.constructor is [].constructor
+    or obj.constructor is ''.constructor
+    or (tmp = Array.prototype.slice.call(obj)).length:
+        return (tmp or obj).length
     return Object.keys(obj).length
 ,
 "map": def map(oper, arr):
     return arr.map(oper)
 ,
 "max": def max(a):
-    if Array.isArray(a):
-        return Math.max.apply(null, a)
-    else:
-        return Math.max.apply(null, arguments)
+    return Math.max.apply(null, Array.isArray(a) ? a : arguments)
 ,
 "min": def min(a):
-    if Array.isArray(a):
-        return Math.min.apply(null, a)
-    else:
-        return Math.min.apply(null, arguments)
+    return Math.min.apply(null, Array.isArray(a) ? a : arguments)
 ,
-"mixin": def ՐՏ_mixin(target, source, overwrite):
+"merge": def ՐՏ_merge(target, source, overwrite):
     for JS('var i in source'):
-        # class variables
+        # instance variables
         if source.hasOwnProperty(i) and (overwrite or JS('typeof target[i]') is 'undefined'): target[i] = source[i]
-    for JS('var i in source.prototype'):
+    for prop in Object.getOwnPropertyNames(source.prototype):
         # methods
-        if source.prototype.hasOwnProperty(i) and (overwrite or JS('typeof target.prototype[i]') is 'undefined'): target.prototype[i] = source.prototype[i]
+        if overwrite or JS('typeof target.prototype[prop]') is 'undefined': target.prototype[prop] = source.prototype[prop]
+,
+"mixin": def ՐՏ_mixin(*classes):
+    return def(baseClass):
+        for cls in classes:
+            for key in Object.getOwnPropertyNames(cls.prototype):
+                if key not in baseClass.prototype:
+                    baseClass.prototype[key] = cls.prototype[key]
+        return baseClass
+
 ,
 "print": def ՐՏ_print():
     if JS('typeof console') is 'object': console.log.apply(console, arguments)
@@ -201,6 +183,9 @@
         start
     )
 ,
+"type": def ՐՏ_type(obj):
+    return obj and obj.constructor and obj.constructor.name ? obj.constructor.name : Object.prototype.toString.call(obj).slice(8, -1)
+,
 "zip": def zip(a, b):
     return [[a[i], b[i]] for i in range(Math.min(a.length, b.length))]
 ,
@@ -233,7 +218,7 @@
 
         if Array.isArray(a):
             # arrays
-            for i in range(len(a)):
+            for i in range(a.length):
                 if not ՐՏ_eq(a[i], b[i]):
                     return False
         else:
@@ -258,13 +243,22 @@
             args = [].slice.call(arguments)
             if args.length:
                 kw = args[-1]
-                if type(kw) is 'object':
+                if JS('typeof kw') is 'object':
                     for i in range(argNames.length):
-                        if argNames[i] in dir(kw):
+                        if argNames[i] in kw:
                             args[i] = kw[argNames[i]]
                 else:
                     args.push(kw)
-            return f.apply(this, args)
+
+            # This logic is very fragile and very subtle, it needs to work both in ES6 and ES5, don't try to optimize the
+            # apply away into *args because having it in this format ensures correct 'this' context, otherwise the function
+            # ends up unbound. Similarly, the fallthrough to except handles class creation in ES6.
+            try:
+                return f.apply(this, args)
+            except as e:
+                if /Class constructor \w+ cannot be invoked without 'new'/.test(e):
+                    return new f(*args)
+                raise
     kwargs.memo = {}
 ,
 

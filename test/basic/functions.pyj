@@ -59,7 +59,9 @@ assert.equal(y, "foo")
 count = 0
 f, r = (def():
 	def fake_increment():
-		count += 1
+		# this pattern no longer allowed, compiler throws an error since you probably forgot nonlocal definition
+		# count += 1
+		pass
 	def real_increment():
 		nonlocal count
 		count += 1
@@ -72,7 +74,8 @@ r()
 assert.equal(count, 1)
 
 st = "this is a string"
-assert.equal(type(st), JS("typeof st"))
+st1 = String('another string')
+assert.equal(type(st), type(st1))
 
 # testing inlined functions
 inlined = [
@@ -165,11 +168,11 @@ assert.equal(j, 6)
 
 
 # ANNOTATIONS
-# the only thing we can test at this time is that they're harmless
+# these particular ones should be harmless, we'll test violation cases in error directory
 def concat(a: String, b: String):
     return a + b
 
-def add(a: Number, b: Number) -> Number:
+def add(a: Number, b: Number = 13) -> Number:
     return a + b
 
 def boz(foo: "foo is often used in programming", bar: "so is bar") -> "boz, because baz was already taken":
@@ -183,3 +186,11 @@ class Qux:
 assert.equal(concat('air', 'plane'), 'airplane')
 assert.equal(add(5, 2), 7)
 assert.equal(boz(2, 11), 13)
+
+# now that we infer types from property access, make sure this causes no errors
+def Quux(a:Number, b:[Number], c:{String:Number}) -> [[Number]]:
+    b.push(a)
+    if a:
+        return [b]
+    return [[c['test']]]
+    # unfortunately we can't yet assert on the case of return [[Number]] or Number since it resolves to ?, which we don't assert on

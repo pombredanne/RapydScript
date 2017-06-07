@@ -7,7 +7,7 @@ RapydScript
 
 What is RapydScript?
 --------------------
-RapydScript is a pre-compiler for JavaScript. The syntax is very similar to Python, but allows JavaScript as well. This project was written as a cleaner alternative to CoffeeScript. Here is a quick example of a high-performance Fibinacci function in RapydScript and the JavaScript it produces after compilation:
+RapydScript is a pre-compiler for JavaScript. The syntax is very similar to Python, but allows JavaScript as well. This project was written as a cleaner alternative to CoffeeScript. Here is a quick example of a high-performance Fibonacci function in RapydScript and the JavaScript it produces after compilation:
 
 ```python
 def memoize(f):
@@ -56,7 +56,7 @@ Here are just a few examples of cleaner RapydScript syntax:
 | RapydScript              | JavaScript                                                                     |
 | ------------------------ | ------------------------------------------------------------------------------ |
 | `foo = 1`                | `var foo = 1;`                                                                 |
-| `thing in stuff`         | `stuff.indexOf(element) != -1`                                                 |
+| `thing in stuff`         | `stuff.indexOf(thing) != -1`                                                   |
 | `a < b < c`              | `a < b && b < c`                                                               |
 | `def(a, b='foo'):`       | `function(a, b) { if (typeof b === 'undefined') b = 'foo'; }`                  |
 | `array[-1]`              | `array[array.length-1]`                                                        |
@@ -67,18 +67,20 @@ Here are just a few examples of cleaner RapydScript syntax:
 
 RapydScript allows to write your JavaScript app in a language much closer to Python without the overhead that other similar frameworks introduce (the performance is the same as with pure JavaScript). To those familiar with CoffeeScript, RapydScript is like CoffeeScript, but inspired by Python's readability rather than Ruby's cleverness. To those familiar with Pyjamas, RapydScript brings many of the same features and support for Python syntax without the same overhead. Don't worry if you've never used either of the above-mentioned compilers, if you've ever had to write your code in pure JavaScript you'll appreciate RapydScript. RapydScript combines the best features of Python as well as JavaScript, bringing you features most other Pythonic JavaScript replacements overlook. Here are a few features of RapydScript:
 
-- real deep equality with no performance overhead
+- `==` compiles to deep equality and uses clever optimizations to avoid performance overhead
+- type inference that allows for hybrid-typing similar to TypeScript
+- intelligent scoping (no need for repetitive `var` or `new` keywords)
+- intelligent code optimizations based on context
 - much cleaner code than native JavaScript
-- classes that work and feel very similar to Python
-- pythonic import system (you can also use `require()`)
 - optional function arguments that work just like Python (`func(third='foo')`)
-- inheritance system that's both, more powerful than Python and cleaner than JavaScript (single inheritance w/ mixins);
-- support for object literals with anonymous functions, like in JavaScript
-- ability to invoke any JavaScript/DOM object/function/method as if it's part of the same framework, without the need for special syntax
-- variable and object scoping that make sense (no need for repetitive `var` or `new` keywords)
+- decorators, list comprehensions, dict comprehensions, verbose regex, starargs, kwargs, you name it
 - ability to use both, Python's methods/functions and JavaScript's alternatives
 - similar to above, ability to use both, Python's and JavaScript's tutorials (as well as widgets)
-- decorators, list comprehensions, dict comprehensions, verbose regex, starargs, kwargs, you name it
+- classes that work and feel very similar to Python
+- inheritance system that's both, more powerful than Python and cleaner than JavaScript (single inheritance w/ mixins);
+- pythonic import system (you can also use `require()`)
+- support for object literals with anonymous functions, like in JavaScript
+- ability to invoke any JavaScript/DOM object/function/method as if it's part of the same framework, without the need for special syntax
 - it's self-hosting, the compiler is itself written in RapydScript and compiles into JavaScript
 
 Let's not waste any more time with the introductions, however. The best way to learn a new language/framework is to dive in.
@@ -98,6 +100,7 @@ Table of Contents
 - [Anonymous Functions](#anonymous-functions)
 - [Decorators](#decorators)
 - [Function Annotations](#function-annotations)
+- [Hybrid and Static Typing](#hybrid-and-static-typing)
 - [Self-Executing Functions](#self-executing-functions)
 - [Chaining Blocks](#chaining-blocks)
 - [Function calling with optional arguments](#function-calling-with-optional-arguments)
@@ -114,9 +117,11 @@ Table of Contents
 - [Scope Control](#scope-control)
 - [Importing](#importing)
 - [Regular Expressions](#regular-expressions)
+- [ES6 Features](#es6-features)
 - [Available Libraries](#available-libraries)
 - [Advanced Usage Topics](#advanced-usage-topics)
   - [System Scripts](#system-scripts)
+  - [Unit Testing](#unit-testing)
   - [Browser Compatibility](#browser-compatibility)
   - [Code Conventions](#code-conventions)
     - [Tabs vs Spaces](#tabs-vs-spaces)
@@ -184,6 +189,8 @@ My solutions to Project Euler challenges in RapydScript. For those unfamiliar wi
 
 Compilation
 -----------
+**NOTE: ES6 mode is getting stable enough where I feel comfortable making it the default soon, after which ES5 mode will be deprecated in favor of lighter codebase. To those needing support for older platforms in the future, I recommend sending RapydScript in conjunction with Babel.js.**
+
 Once you have installed RapydScript, compiling your application is as simple as running the following command:
 
 	rapydscript <location of main file> [options]
@@ -203,21 +210,29 @@ The available options are:
 	-p, --prettify     Beautify output/specify output options.
 	-V, --version      Print version number and exit.
 	-t, --test         Run unit tests, making sure the compiler produces usable code, you can specify a file or test everything
-			--bench        Run performance tests, you can specify a file or test everything (note that these tests take a while to run)
+		--bench        Run performance tests, you can specify a file or test everything (note that these tests take a while to run)
 	-6, --es6          Build code for ES6, cleaner output with support for more features (EXPERIMENTAL)
 	-m, --omit-baselib Omit base library from generated code, make sure you're including baselib.js if you use this
 	-i, --auto-bind    Automatically bind methods to the class they belong to (more Pythonic, but could interfere with other JS libs)
 	-h, --help         Print usage and more information on each of these options
-			--self         Compile the compiler itself
-			--stats        Show compilation metrics in STDERR (time to parse, generate code, etc.)
+		--self         Compile the compiler itself
+		--stats        Show compilation metrics in STDERR (time to parse, generate code, etc.)
+		--dd           Drop specified decorators (takes a comma-separated list of decorator names)
+		--di           Drop specified imports (takes a comma-separated list of import names)
 	-l, --lint         Check file for errors and compilation problems
 
-The rest of the option remain from UglifyJS and have not been tested, some may work, but most will not, since the AST is different between RapydScript and UglifyJS. These option  will eventually be removed or modified to be relevant to RapydScript.
+You can also use RapydScript as your main system's scripting language (similar to how some prefer to write their system scripts in Python). To do so, add the following line to the top of your script files:
+
+	#!/usr/bin/env rapydscript -x
+
+Now simply invoking the file (assuming it has execute permissions on it) should execute it.
 
 
 Getting Started
 ---------------
-As you read the following sections, I suggest you start a RapydScript shell (by typing `rapydscript` without arguments) and follow along. You'll be able to see both, the generated JavaScript, and the output produced by the given RapydScript command.
+As you read the following sections, I suggest you start a RapydScript shell (by typing `rapydscript` without arguments in your terminal) and follow along. You'll be able to see both, the generated JavaScript, and the output produced by the given RapydScript command.
+
+You can also run the compiler in the browser. Just add a `script` tag linking back to `lib/rapydscript.js` and invoke the compiler as `rapydscript.compile(stringOfCode, options)`.
 
 Like JavaScript, RapydScript can be used to create anything from a quick function to a complex web-app. RapydScript can access anything regular JavaScript can, in the same manner. Let's say we want to write a function that greets us with a "Hello World" pop-up. The following code will do it:
 
@@ -432,12 +447,48 @@ def bar(x: "x coordinate of the point", y: "y coordinate of the point") -> "dist
 	return Math.sqrt(x**2 + y**2)
 ```
 
-Python is more flexible about them since they're treated as a fancy comment. 
-In TypeScript they are actually significant and used to enforce static typing. In current version of RapydScript they are not significant yet,
-but will eventually work similar to TypeScript when used properly. The idea is to allow the developer a hybrid approach of static and dynamic
-typing. Dynamic typing gives more flexibility to the user and the code can more easily be reused in other places. Static typing gives the compiler
-more information about the context, allowing for better linting and optimization. It may be possible in the future to leverage this information to
-provide compile-time optimizations for the code.
+Python is more flexible about them since they're treated as a fancy comment. In TypeScript they are actually significant and
+used to enforce static typing. In current version of RapydScript they are significant if they resolve to a static type.
+See "Static Typing" section for more details.
+
+
+Hybrid And Static Typing
+------------------------
+RapydScript allows you to use both dynamic and static typing (similar to TypeScript or Flow). Unlike TypeScript, however, RapydScript goes
+a step further with error detection and code optimization when you use static typing. I call this approach hybrid-typing.
+
+The idea behind hybrid-typing is to combine the best of dynamic typing and static typing. Dynamic typing gives more flexibility to the
+user and the code can more easily be reused in other places. Static typing gives the compiler more information about the context,
+allowing for better linting, error checking and optimizations.
+
+Some examples of logic the compiler can do for statically-typed code are:
+
+- raise errors when the type of a statically declared variable is violated
+- raise errors when an incompatible operation is performed on two variables (no more `{} + []`)
+- inline certain functions/operations
+- precompute certain values, assuming enough context/information about their state
+
+You may wonder why compilers like TypeScript can't do the same. There are two parts to the answer:
+
+- TypeScript tries to be more compatible with native JavaScript and as a result has to be more conservative with its optimizations
+- RapydScript uses some non-JavaScript design patterns, as well as banning some traditional JavaScript anti-patterns, this stricter language syntax allows RapydScript to be more aggressive with its optimizations and errors
+
+You don't need to do anything to benefit from RapydScript's type inference, your variable types are automatically resolved behind the scenes. However,
+you can give the compiler even more hints about variables types (and as a result benefit from its optimizations and error detection even more). Do do
+so, simply label function inputs and outputs via type annotations as mentioned in previous section:
+
+```python
+def optimizeMe(a: Number, b:Number) -> Number:
+	...
+```
+
+The compiler will now check that the arguments passed to the function are indeed numbers and the output is also a number, throwing an error if it detects
+an incorrect input or return. Additionally, the compiler will use inputs and outputs of this function to resolve the types of other variables in
+your code, further assisting itself in optimizations and error checking.
+
+The best way to use hybrid-typing is to start out with dynamically-typed code and add types to it once you finalize and refactor the function. While
+static typing is optional, I definitely recommend you do it. The best way to think about static typing is as a free unit test for your
+logic.
 
 
 Self-Executing Functions
@@ -493,18 +544,19 @@ The only limitation is that the indentation has to match, if you prefer to inden
 		.css('background-color', 'red')\
 		.show()
 
-RapydScript also allows an alternative syntax for the same feature, for those preferring Python's traditional, hanging-indent look:
-
-	def(one, two) and call(this, 1, 2):
-		...
-
-Which is equivalent to the following:
+You may use this feature to define and call the function immediately:
 
 	def(one, two):
 		...
 	.call(this, 1, 2)
 
-Some of you might welcome this feature, some of you might not. RapydScript always aims to make its unique features unobtrusive to regular Python, which means that you don't have to use them if you disagree with them. Recently, we have enhanced this feature to handle `do/while` loops as well:
+JavaScript's parenthesized syntax will work as well:
+
+	(def(one, two):
+		...
+	)(1, 2)
+
+Some of you might welcome this feature, some of you might not. RapydScript always aims to make its unique features unobtrusive to regular Python, which means that you don't have to use them if you disagree with them. RapydScript implements `do/while` loops via similar syntax as well:
 
 	a = 0
 	do:
@@ -512,17 +564,10 @@ Some of you might welcome this feature, some of you might not. RapydScript alway
 		a += 1
 	.while a < 1
 
-In my opinion, this is something even Python could benefit from. Like with functions, you could use the hanging-indent form as well:
-
-	a = 0
-	do and while a < 1:
-		print(a)
-		a += 1
-
 
 Function calling with optional arguments
 -------------------------------------------
-RapydScript supports the same function calling format as Python. You can have named optional arguments, create functions with variable numbers of arguments and variable numbers of named arguments. Some examples will illustrate this best:
+RapydScript supports the same function calling format as Python. You can have named optional arguments, create functions with variable numbers of arguments and variable number of named arguments. Some examples will illustrate this best:
 
 	def foo(a, b=2):
 		return [a, b]
@@ -804,7 +849,7 @@ But RapydScript's capability doesn't end here. Like Python, RapydScript allows i
 
 A couple things to note here. We can invoke methods from the parent class the same way we would in Python, by using `Parent.method(self, ...)` syntax. This allows us to control when and how (assuming it requires additional arguments) the parent method gets executed. Also note the use of `\` operator to break up a line. This is something Python allows for keeping each line short and legible. Likewise, RapydScript, being indentation-based, allows the same.
 
-An important distinction between Python and RapydScript is that RapydScript does not allow multiple inheritance. This might seem like a big deal at first, but in actuality it barely matters. When using multiple inheritance, we usually only care about a few methods from the alternative classes. Leveraging JavaScript prototypical inheritance, RapydScript allows us to reuse methods from another class without even inheriting from it:
+An important distinction between Python and RapydScript is that RapydScript does not allow multiple inheritance. This is intentional, both for performance reasons and because multiple inheritance creates ambiguity. When using multiple inheritance, we usually only care about a few methods from the alternative classes (also see `mixin` section below). Leveraging JavaScript prototypical inheritance, RapydScript allows us to reuse methods from another class without even inheriting from it:
 
 	class Something(Parent):
 		def method(self, var):
@@ -814,12 +859,19 @@ An important distinction between Python and RapydScript is that RapydScript does
 
 Notice that `Something` class has no `__init__` method. Like in Python, this method is optional for classes. If you omit it, an empty constructor will automatically get created for you by RapydScript (or when inheriting, the parent's constructor will be used). Also notice that we never inherited from SomethingElse class, yet we can invoke its methods. This brings us to the next point, the only real advantage of inheriting from another class (which you can't gain by calling the other classes method as shown above) is that the omitted methods are automatically copied from the parent. Admittedly, we might also care about `isinstance()` method, to have it work with the non-main parent, which is equivalent to JavaScript's `instanceof` operator.
 
-**NOTE:** If you compile your code without `--screw-ie8` flag, the constructor will be executed every time you create a subclass of the given class. In most cases this will not hurt you, but in some cases you could see odd side-effects. For example, having a `print()` statement in the parent constructor will cause its contents to be output for every subclass, even if you do not explicitly create an instance. `--screw-ie8` option fixes this issue, at the expense of compatibility with Internet Explorer 6-8.
+To reuse portions of other classes similar to how one would expect via multiple inheritance, RapydScript also allows `mixin`s. To declare class with a few mixins simply use a decorator:
 
-There is also a convenience function in RapydScript called `mixin` that lets you assign all methods of a given class to another, like Python's multiple inheritance:
+	@mixin(Predator, Maneuverable)
+	class Shark(Fish):
+		def __init__(self):
+			Fish.__init__(self)
+			self.bites = True
+			self.damage = 999
 
-	mixin(Snake, Animal, false)     # add Animal's methods to Snake, don't overwrite ones already declared in Snake
-	mixin(Snake, Animal, true)      # add Animal's methods to Snake, overwriting ones already declared in Snake
+There is also a convenience function in RapydScript called `merge` that lets you assign all methods of a given class to another, it gives you a bit more control than a `mixin` at the expense of prettier syntax:
+
+	merge(Snake, Animal, false)     # add Animal's methods to Snake, don't overwrite ones already declared in Snake
+	merge(Snake, Animal, true)      # add Animal's methods to Snake, overwriting ones already declared in Snake
 
 To summarize classes, assume they work the same way as in Python, plus a few bonus cases. The following, for example, are equivalent:
 
@@ -1159,6 +1211,94 @@ As in JavaScript, you can also use the `RegExp` class:
 	regex = RegExp(/ab+c/, 'i')
 
 
+ES6 Features
+------------
+Most of the features in the compiler work fine with any version of JavaScript. Some features, however, are only available when you compile with `-es6` flag. Implementing them in older versions of JavaScript is simply not the best use of my time with libraries like Babel.js doing a good job with it. Here are some features that work differently in ES6 mode:
+
+- Function generators (only supported with ES6 flags)
+- Computed dictionary/object literal keys (`(foo**2): val`, only supported with ES6 flag)
+- Spread operators in arrays (`['one', *splat, 'ten']`, only supported with ES6 flag)
+- Spread operators in object literals (`{foo: "bar", *splat, baz: "qux"}`, only supported with ES6 flag)
+- Setters and getters for classes (only supported with ES6 flag)
+- Template literals
+
+The remaining features are all supported with regular mode but take advantage of ES6 features when compiled with `-es6` flag:
+
+- Cleaner optional function arguments
+- Cleaner array to variable unpacking
+- Cleaner class declaration logic
+- Starargs produce cleaner compilation
+
+Out of the new features mentioned above, function generator syntax is the same as in Python:
+
+```python
+def firstN(n):
+	num = 0
+	while num < n:
+		yield num
+		num += 1
+
+print(sum(firstN(1e6)))
+```
+
+The syntax for computed keys is slightly different from Python, since JavaScript already uses the unquoted key syntax as alias for quoted keys and
+RapydScript has been doing the same for a while. But since the array-like syntax of ES6 is ugly/confusing, RapydScript follows the convention it has itself
+set for a while of using parentheses (this convention is consistent with self-executing function convention and using class as a function convention):
+
+	computed = "qux"
+	key = "Quux"
+	hash = {
+		regularKey: 1
+		'regular-key': "foo",
+		(computed + key): "baz"
+	}
+
+Spread operators are not supported in Python but are part of ES6 syntax. These allow you to splat one array/hash inside another. For now RapydScript uses
+the `*args` convention set by Python for function calls (since this operation is similar in spirit), although the `...args` operator JavaScript uses seems
+more intuitive to me, so there is a good chance it may change (or at least support both). Example use cases:
+
+	a = [5 to 20]
+	b = [100 til 500]
+	c = [1, 2, *a, 27, 28, *b, 999]
+
+	props = {
+		foo: "bar",
+		baz: 2
+	}
+	moreProps = {
+		*props,
+		qux: "quux"
+	}
+
+Setters and getters for classes are implemented in a way that's more similar to JavaScript than Python, mainly because their syntax is so horrible
+in Python. As an added bonus, they actually feel more consistent with RapydScript's `def` keyword than they do in JavaScript itself:
+
+```python
+class Item:
+    _item = None
+
+    def unit(self):
+        pass
+
+    get item(self):
+        return self._item
+
+    set item(self, val):
+        self._item = val
+```
+
+Template literals are new type of string in ES6 that auto-interpolates variables for you. Just like Python 3.6, RapydScript uses the `f` prefix for these:
+
+```python
+name = 'Simon'
+greeting = f"Hello, my name is ${name}."
+```
+
+This will auto-fill name into the greeting, after which it will function as a regular string. This will eventually be the preferred approach over
+concatenating strings, and integer/string concatenation will probably be marked as an error. It is, however, possible that the `${}` syntax, which was
+taken from ES6, may change (Python's own syntax is `{}` by themselves).
+
+
 Available Libraries
 -------------------
 One of Python's main strengths is the number of libraries available to the developer. This is something very few other `Python-in-a-browser` frameworks understand. In the browser JavaScript is king, and no matter how many libraries the community for the given project will write, the readily-available JavaScript libraries will always outnumber them. This is why RapydScript was designed with JavaScript and DOM integration in mind from the beginning. Indeed, plugging `underscore.js` in place of RapydScript's `stdlib` will work just as well, and some developers may choose to do so, after all, `underscore.js` is very Pythonic and very complete. Likewise, `sprintf.js` (<https://npmjs.org/package/sprintf-js>) can be used with RapydScript to replicate Python's string interpolation.
@@ -1190,8 +1330,51 @@ This is identical to the following terminal operation:
 
 It will trigger the script, omitting the compiled code. You can include the `--pretty` option to include output of the compiled code as well.
 
+### Unit Testing
+You're free to use any unit testing library you wish, but RapydScript comes with a `dev` library out of the box. It's a convenient way to test your
+functions without having to build out a test harness yourself. To use it, simply import `dev`, set `UTEST` to true on global `root` object and
+use `dev.utest` decorator:
+
+```python
+import dev
+
+root.UTEST = True
+
+@dev.utest({input: [1, 2], output: 3})
+@dev.utest({input: [1, 2, 3], output: 3})
+@dev.utest({input: [Infinity, 2], output: Infinity})
+def foo(a, b):
+	return a + b
+
+@dev.utest({input: [], error: /qux/})
+def bar():
+	raise Error('qux')
+```
+The function is tested at load time, not when it's executed, which means these test decorators can stay in your code without affecting execution after.
+You may disable the test, however, by unsetting the `UTEST` variable. Aside from running at initialization, you won't even experience function-call
+overhead with these decorators since they pass the original function through. However, if you want to remove them altogether in your production
+environment, you can use `drop_decorators` and `drop_imports` flags:
+
+```bash
+rapydscript file.pyj --dd dev.utest --di dev
+```
+
 ### Browser Compatibility
 By default, RapydScript compiles your logic such that it will work on modern browsers running HTML5. Previously I generated code that was compatible with older versions of IE, but have since decided that it wasn't worth it. It prevented me from making use of sensible JavaScript features many developers take for granted (setters, getters, strict mode, etc.), forced special cases on me, and required overly verbose JavaScript with unnecessary polyfill. RapydScript no longer supports versions of IE before 9, but you can easily bring that support back into RapydScript with the help of a tool like `Modernizr` or `Babel`.
+
+### Easter Eggs
+While working with RapydScript, and interesting idea to try came to me:
+
+```python
+array = [i**2 for i in [1 to 100]] # just an array, initialized whichever way you want
+
+@array.forEach
+def f(e, i):
+	print('lolz ' + e)
+```
+The above logic will do exactly what it looks like. It will auto-trigger on function creation, and repeat the action for each element in the array.
+This wasn't intentional addition to the language, more of a side-effect of how decorators are implemented, but I can assure you it's not going anywhere
+in case you want to make use of it for something of value.
 
 ### Code Conventions
 It's not hard to see that RapydScript is a cleaner language than JavaScript. However, like with all dynamically-typed languages (including Python), it's still easy to shoot yourself in the foot if you don't follow some sort of code conventions. Needless to say, they're called `conventions` for a reason, feel free to ignore them if you already have a set of conventions you follow or if you disagree with some.
@@ -1253,7 +1436,7 @@ RapydScript will pick up any classes you declare yourself as well as native Java
 
 #### Performance
 Performance emphasis is at the core of RapydScript. I don't want to feel like I'm a second-class citizen compared to native JavaScript developers and neither
-should other RapydScript users. For that reasons RapydScript rejected many Pythonic features that I myself would like to see in favor of performance. Some
+should other RapydScript users. For that reason RapydScript rejected many Pythonic features that I myself would like to see in favor of performance. Some
 of these include operator overloading and better error catching. However, when performance hit is negligible and allows additional productivity to the
 developer, that's the kind of win-win RapydScript attempts to capture. For that reason, the compiler comes bundled with a mini benchmark suite. You can
 invoke it by using `--bench` command. Since it takes a while to run performance tests, I recommend you select a particular file (in `test/perf/`) to bench. 
@@ -1277,22 +1460,19 @@ In a perfect world, software works flawlessly and doesn't have any special cases
   when you rely on duck-typing to conceal a class constructor in a variable).
   In those cases you should append the `new` keyword yourself. Similarly, the
   compiler will try to convert SomeClass.method() into SomeClass.prototype.method()
-  for you, but will fail in the same cases. Declaring this variable as a class
+  for you, but will fail in some cases. Declaring this variable as a class
   with `@external` decorator should fix this issue.
 
-- JavaScript's equality operator is gimped. It only works as equality operator for
-  primitive types (string, number, boolean). For objects, it's more akin to Python's
-  `is` operator, comparing memory address rather than equality. For that reason,
-  never compare arrays or objects via `==`, instead use inbuilt `eq` function.
-
 - Truthiness in JavaScript is very different from Python. Empty lists and dicts
-  are ``False`` in Python but ``True`` in JavaScript. The compiler could work
+  are `False` in Python but `True` in JavaScript. The compiler could work
   around that, but not without a significant performance cost, so it is best to
   just get used to checking the length instead of the object directly.
 
 - Operators in JavaScript are very different from Python. `1 + '1'` would be
   an error in Python, but results in `'11'` in JavaScript. Keep that in mind
-  as you write code.
+  as you write code. When possible, RapydScript tries to detect type and warn
+  you ahead of time of nonsensical operations such as `[] + {}`, but sometimes
+  it can't do its magic.
 
 - Method binding in RS is not automatic. So ``someobj.somemethod()`` will do the
   right thing, but ``x = someobj.somethod; x()`` will not. RS could work around

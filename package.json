@@ -1,6 +1,6 @@
 {
   "name": "rapydscript",
-  "description": "Pythonic JavaScript that doesn't suck",
+  "description": "Python-inspired, decluttered version of JavaScript with optional static typing, automatic optimizations and enhanced error-checking.",
   "homepage": "http://rapydscript.com",
   "keywords": [
     "javascript",
@@ -8,12 +8,15 @@
     "language",
     "compiler"
   ],
-  "main": "tools/compiler.js",
+  "main": "lib/rapydscript.js",
   "scripts": {
     "test": "bin/rapydscript --test",
+    "test6": "bin/rapydscript --test --es6",
+    "preversion": "npm test",
+    "postversion": "npm publish",
     "build-self": "bin/rapydscript --self"
   },
-  "version": "0.5.0",
+  "version": "0.5.57",
   "license": "BSD-2-Clause",
   "engines": {
     "node": ">=0.12.0"
@@ -21,7 +24,7 @@
   "maintainers": [
     {
       "name": "Alexander Tsepkov",
-      "email": "atsepkov@pyjeon.com",
+      "email": "atsepkov@rapydscript.com",
       "web": "http://rapydscript.com"
     }
   ],
@@ -36,6 +39,7 @@
   "devDependencies": {
     "benchmark": "^2.1.1",
     "chai": "^3.5.0",
-    "mocha": "^3.0.2"
+    "mocha": "^3.0.2",
+    "zombie": "^4.2.1"
   }
 }

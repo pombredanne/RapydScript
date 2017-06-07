@@ -91,7 +91,7 @@ function opt(name, aliases, type, default_val, help_text) {
 
 	if (!type || type == 'bool') options.boolean[name] = true;
 	else if (type == 'string') options.string[name] = true;
-	
+
 	if (default_val !== undefined) options.default[name] = default_val;
 
 	if (aliases && aliases.length) {
@@ -250,6 +250,26 @@ environment variable RAPYDSCRIPT_PATH for this,
 with identical syntax. Note that these directories
 are searched before the builtin paths, which means you
 can use them to replace builtin modules.
+*/});
+
+opt("drop_decorators", "dd", 'string', '', function(){/*
+A comma-separated list of decorators to drop during
+compilation. This flag's purpose is to allow the user
+to keep debug/test decorators in development and later
+drop them in production.
+*/});
+
+opt("drop_imports", "di", 'string', '', function(){/*
+A comma-separated list of imports to drop during
+compilation. This flag's purpose is to allow the user
+to keep debug/test imports in development and later
+drop them in production. This option can be
+used together with drop_decorators.
+*/});
+
+opt("drop_docstrings", "ds", 'bool', '', function(){/*
+If set, will drop all docstrings from the compilation,
+useful for producing a smaller compilation.
 */});
 
 opt("comments", undefined, 'string', '', function(){/*
